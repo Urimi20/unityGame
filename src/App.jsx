@@ -126,7 +126,6 @@ export default function App() {
     const requestRef = useRef(null);
     const playerRef = useRef({ x: 200, y: 500, radius: 20, trail: [] });
     const obstaclesRef = useRef([]);
-    const particlesRef = useRef([]);
     const starsRef = useRef(
       Array.from({ length: 50 }, () => ({
         x: Math.random() * 400,
@@ -137,7 +136,7 @@ export default function App() {
     );
 
     const frameCountRef = useRef(0);
-    const difficultyRef = useRef(1.6); // FILLIMI MË I SHPEJTË
+    const difficultyRef = useRef(1.6);
     const scoreRef = useRef(0);
     const isDeadRef = useRef(false);
     const [currentScore, setCurrentScore] = useState(0);
@@ -150,7 +149,7 @@ export default function App() {
       const type = types[Math.floor(Math.random() * types.length)];
       const size = 25 + Math.random() * 25;
       const x = Math.random() * (W - size) + size / 2;
-      const speedY = (4.5 + Math.random() * 3) * difficultyRef.current; // OBJEKTET BIEN MË SHPEJT
+      const speedY = (4.5 + Math.random() * 3) * difficultyRef.current;
       const speedX = (Math.random() - 0.5) * 3 * difficultyRef.current;
       const color = ["#ff6b81", "#ffd32a", "#a55eea", "#ff4757"][
         Math.floor(Math.random() * 4)
@@ -195,7 +194,6 @@ export default function App() {
         if (frameCountRef.current % 5 === 0)
           setCurrentScore(Math.floor(scoreRef.current));
 
-        // RRITJA E VËSHTIRËSISË MË AGRESIVE
         if (frameCountRef.current % 150 === 0) difficultyRef.current += 0.25;
 
         const spawnRate = Math.max(
@@ -259,11 +257,15 @@ export default function App() {
       return () => cancelAnimationFrame(requestRef.current);
     }, [update]);
 
+    // NDRYSHIMI KRYESOR KËTU PËR MOBILE TOUCH
     const handleInput = (e) => {
       if (isDeadRef.current) return;
       const rect = canvasRef.current.getBoundingClientRect();
+
+      // Kontrollon nëse është touch (mobile) apo mouse (desktop)
       const clientX = e.touches ? e.touches.clientX : e.clientX;
       const clientY = e.touches ? e.touches.clientY : e.clientY;
+
       playerRef.current.x = (clientX - rect.left) * (W / rect.width);
       playerRef.current.y = (clientY - rect.top) * (H / rect.height);
     };
@@ -319,10 +321,15 @@ export default function App() {
             height={H}
             onMouseMove={handleInput}
             onTouchMove={(e) => {
-              e.preventDefault();
+              e.preventDefault(); // Ndalon scroll-in e faqes kur luan
               handleInput(e);
             }}
-            style={{ width: "100%", height: "100%", cursor: "none" }}
+            style={{
+              width: "100%",
+              height: "100%",
+              cursor: "none",
+              touchAction: "none",
+            }}
           />
         </div>
       </div>
