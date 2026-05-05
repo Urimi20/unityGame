@@ -283,9 +283,11 @@ export default function App() {
             }}
           />
           <div style={{ color: "white", fontSize: "14px" }}>
-            <b>Urime 1 vjetori!</b>
+            <b>
+              Urime 1 vjetori i hapjes se <strong>Unity Tech Hub</strong>!
+            </b>
             <br />
-            <small>Shpejtësi maksimale!</small>
+            <small>Te luajme dhe festojme se bashku!</small>
           </div>
         </div>
         <div
