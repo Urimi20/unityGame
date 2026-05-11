@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 
+// Ky është imazhi që përdoret për lojtarin dhe logon
 import URL_FOTOS from "../image.png";
 
 const GlobalStyles = () => (
@@ -69,19 +70,23 @@ export default function App() {
   const logoRef = useRef(null);
 
   useEffect(() => {
+    // Ngarkimi i logos
     const img = new Image();
     img.src = URL_FOTOS;
     img.onload = () => {
       logoRef.current = img;
     };
 
+    // Ngarkimi i listës së rekordeve
     const savedLeaderboard =
       JSON.parse(localStorage.getItem("neonLeaderboard")) || [];
     setLeaderboard(savedLeaderboard);
+
+    // Këtu kemi hequr kushtin që të dërgonte direkt te "dashboard"
+    // nëse ekzistonte një përdorues i ruajtur.
     const savedUser = localStorage.getItem("neonCurrentUser");
     if (savedUser) {
-      setUsername(savedUser);
-      setView("dashboard");
+      setUsername(savedUser); // Plotëson emrin automatikisht në input
     }
   }, []);
 
@@ -182,7 +187,7 @@ export default function App() {
           speedY: 3,
         });
       }
-    }, [difficultyRef]);
+    }, []);
 
     const update = useCallback(() => {
       const canvas = canvasRef.current;
@@ -384,6 +389,8 @@ export default function App() {
   return (
     <div style={styles.container}>
       <GlobalStyles />
+
+      {/* FAQJA E PARË QË SHFAQET: INTRO */}
       {view === "intro" && (
         <form
           onSubmit={handleLogin}
@@ -423,29 +430,28 @@ export default function App() {
 
       {view === "dashboard" && (
         <div className="glass-panel" style={styles.screen}>
-          <h2 style={{ color: "white", margin: "0 0 20px 0" }}>
-            <img
-              src={URL_FOTOS}
-              alt=""
-              style={{
-                width: "80px",
-                height: "80px",
-                borderRadius: "50%",
-                objectFit: "cover",
-                border: "2px solid #0fb9b1",
-              }}
-            />
-            <h2
-              style={{
-                color: "white",
-                margin: "0 0 20px 0",
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-              }}
-            >
-              Përshëndetje, <span style={{ color: "#0fb9b1" }}>{username}</span>
-            </h2>
+          <img
+            src={URL_FOTOS}
+            alt=""
+            style={{
+              width: "80px",
+              height: "80px",
+              borderRadius: "50%",
+              objectFit: "cover",
+              border: "2px solid #0fb9b1",
+              marginBottom: "10px",
+            }}
+          />
+          <h2
+            style={{
+              color: "white",
+              margin: "0 0 20px 0",
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+            }}
+          >
+            Përshëndetje, <span style={{ color: "#0fb9b1" }}>{username}</span>
           </h2>
           <div style={styles.leaderboardContainer}>
             <h3
