@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 
-// VENDO LIKUN E FOTOS TËNDE KËTU
 import URL_FOTOS from "../image.png";
 
 const GlobalStyles = () => (
@@ -10,24 +9,26 @@ const GlobalStyles = () => (
       to { opacity: 1; transform: translateY(0); }
     }
     .glass-panel {
-      background: rgba(20, 24, 35, 0.4);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      background: rgba(20, 24, 35, 0.6);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
       border: 1px solid rgba(255, 255, 255, 0.1);
-      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
       animation: fadeInDown 0.5s ease-out forwards;
     }
     .neon-btn {
       transition: all 0.3s ease;
       position: relative;
       overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      letter-spacing: 1px;
     }
     .neon-btn:hover {
       transform: translateY(-2px) scale(1.02);
       box-shadow: 0 0 20px currentColor;
     }
-    .btn-cyan { color: #0fb9b1; }
-    .btn-cyan:hover { box-shadow: 0 0 20px #0fb9b1; }
+    .btn-cyan { color: #0fb9b1; border: 1px solid #0fb9b1; background: rgba(15, 185, 177, 0.1); }
+    .btn-cyan:hover { background: #0fb9b1; color: white; }
 
     .delete-btn {
       background: rgba(255, 71, 87, 0.1);
@@ -124,20 +125,21 @@ export default function App() {
   const GameEngine = ({ onGameEnd }) => {
     const canvasRef = useRef(null);
     const requestRef = useRef(null);
-    const playerRef = useRef({ x: 200, y: 500, radius: 20, trail: [] });
+    const playerRef = useRef({ x: 200, y: 500, radius: 22, hasShield: false });
     const obstaclesRef = useRef([]);
+    const powerUpsRef = useRef([]);
     const particlesRef = useRef([]);
     const starsRef = useRef(
       Array.from({ length: 50 }, () => ({
         x: Math.random() * 400,
         y: Math.random() * 600,
         size: Math.random() * 2,
-        speed: 2 + Math.random() * 4,
+        speed: 2 + Math.random() * 3,
       })),
     );
 
     const frameCountRef = useRef(0);
-    const difficultyRef = useRef(1.6); // FILLIMI MË I SHPEJTË
+    const difficultyRef = useRef(1.6);
     const scoreRef = useRef(0);
     const isDeadRef = useRef(false);
     const [currentScore, setCurrentScore] = useState(0);
@@ -145,67 +147,96 @@ export default function App() {
     const W = 400;
     const H = 600;
 
-    const spawnObstacle = useCallback(() => {
-      const types = ["cube", "crystal", "asteroid"];
-      const type = types[Math.floor(Math.random() * types.length)];
-      const size = 25 + Math.random() * 25;
-      const x = Math.random() * (W - size) + size / 2;
-      const speedY = (4.5 + Math.random() * 3) * difficultyRef.current; // OBJEKTET BIEN MË SHPEJT
-      const speedX = (Math.random() - 0.5) * 3 * difficultyRef.current;
-      const color = ["#ff6b81", "#ffd32a", "#a55eea", "#ff4757"][
-        Math.floor(Math.random() * 4)
-      ];
+    const createExplosion = (x, y, color) => {
+      for (let i = 0; i < 15; i++) {
+        particlesRef.current.push({
+          x,
+          y,
+          vx: (Math.random() - 0.5) * 12,
+          vy: (Math.random() - 0.5) * 12,
+          radius: Math.random() * 3,
+          life: 1.0,
+          color,
+        });
+      }
+    };
 
+    const spawnObstacle = useCallback(() => {
+      const size = 25 + Math.random() * 25;
       obstaclesRef.current.push({
-        x,
+        x: Math.random() * (W - size) + size / 2,
         y: -size,
         size,
-        type,
-        speedY,
-        speedX,
-        color,
-        angle: 0,
-        rotationSpeed: 0.1,
+        speedY: (4.5 + Math.random() * 3) * difficultyRef.current,
+        speedX: (Math.random() - 0.5) * 2,
+        color: ["#ff6b81", "#ffd32a", "#a55eea", "#ff4757"][
+          Math.floor(Math.random() * 4)
+        ],
       });
-    }, []);
+
+      if (Math.random() < 0.04) {
+        powerUpsRef.current.push({
+          x: Math.random() * (W - 40) + 20,
+          y: -40,
+          size: 20,
+          speedY: 3,
+        });
+      }
+    }, [difficultyRef]);
 
     const update = useCallback(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext("2d");
 
-      ctx.fillStyle = "rgba(10, 14, 23, 1)";
+      ctx.fillStyle = "#050810";
       ctx.fillRect(0, 0, W, H);
 
       starsRef.current.forEach((star) => {
         ctx.fillStyle = "#fff";
-        ctx.globalAlpha = 0.5;
+        ctx.globalAlpha = 0.4;
         ctx.beginPath();
         ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
         ctx.fill();
-        if (!isDeadRef.current) star.y += star.speed * difficultyRef.current;
+        if (!isDeadRef.current) star.y += star.speed;
         if (star.y > H) star.y = 0;
       });
       ctx.globalAlpha = 1;
 
+      particlesRef.current.forEach((part, i) => {
+        part.x += part.vx;
+        part.y += part.vy;
+        part.life -= 0.025;
+        ctx.globalAlpha = part.life;
+        ctx.fillStyle = part.color;
+        ctx.beginPath();
+        ctx.arc(part.x, part.y, part.radius, 0, Math.PI * 2);
+        ctx.fill();
+        if (part.life <= 0) particlesRef.current.splice(i, 1);
+      });
+      ctx.globalAlpha = 1;
+
       const p = playerRef.current;
+
       if (!isDeadRef.current) {
         frameCountRef.current++;
         scoreRef.current += 0.2;
         if (frameCountRef.current % 5 === 0)
           setCurrentScore(Math.floor(scoreRef.current));
-
-        // RRITJA E VËSHTIRËSISË MË AGRESIVE
-        if (frameCountRef.current % 150 === 0) difficultyRef.current += 0.25;
-
-        const spawnRate = Math.max(
-          7,
-          30 - Math.floor(difficultyRef.current * 6),
-        );
-        if (frameCountRef.current % spawnRate === 0) spawnObstacle();
+        if (frameCountRef.current % 180 === 0) difficultyRef.current += 0.2;
+        if (frameCountRef.current % 25 === 0) spawnObstacle();
 
         if (logoRef.current) {
           ctx.save();
+          if (p.hasShield) {
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = "#00d2ff";
+            ctx.strokeStyle = "#00d2ff";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.radius + 4, 0, Math.PI * 2);
+            ctx.stroke();
+          }
           ctx.beginPath();
           ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
           ctx.clip();
@@ -217,12 +248,27 @@ export default function App() {
             p.radius * 2,
           );
           ctx.restore();
-          ctx.strokeStyle = "#00d2ff";
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-          ctx.stroke();
         }
+      }
+
+      for (let i = powerUpsRef.current.length - 1; i >= 0; i--) {
+        let pw = powerUpsRef.current[i];
+        pw.y += pw.speedY;
+        ctx.fillStyle = "#00d2ff";
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = "#00d2ff";
+        ctx.beginPath();
+        ctx.arc(pw.x, pw.y, pw.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        if (
+          !isDeadRef.current &&
+          Math.hypot(p.x - pw.x, p.y - pw.y) < p.radius + pw.size / 2
+        ) {
+          p.hasShield = true;
+          powerUpsRef.current.splice(i, 1);
+        }
+        if (pw.y > H + 50) powerUpsRef.current.splice(i, 1);
       }
 
       for (let i = obstaclesRef.current.length - 1; i >= 0; i--) {
@@ -231,26 +277,33 @@ export default function App() {
           o.y += o.speedY;
           o.x += o.speedX;
         }
+
         ctx.fillStyle = o.color;
         ctx.shadowBlur = 10;
         ctx.shadowColor = o.color;
         ctx.beginPath();
-        ctx.rect(o.x - o.size / 2, o.y - o.size / 2, o.size, o.size);
+        ctx.roundRect(o.x - o.size / 2, o.y - o.size / 2, o.size, o.size, 6);
         ctx.fill();
         ctx.shadowBlur = 0;
 
         if (
           !isDeadRef.current &&
-          Math.sqrt((p.x - o.x) ** 2 + (p.y - o.y) ** 2) <
-            p.radius + o.size * 0.4
+          Math.hypot(p.x - o.x, p.y - o.y) < p.radius + o.size * 0.45
         ) {
-          isDeadRef.current = true;
-          setTimeout(() => onGameEnd(Math.floor(scoreRef.current)), 1000);
+          if (p.hasShield) {
+            p.hasShield = false;
+            createExplosion(o.x, o.y, "#00d2ff");
+            obstaclesRef.current.splice(i, 1);
+          } else {
+            isDeadRef.current = true;
+            createExplosion(p.x, p.y, "#ff4757");
+            setTimeout(() => onGameEnd(Math.floor(scoreRef.current)), 1200);
+          }
         }
         if (o.y > H + 50) obstaclesRef.current.splice(i, 1);
       }
 
-      if (!isDeadRef.current)
+      if (!isDeadRef.current || particlesRef.current.length > 0)
         requestRef.current = requestAnimationFrame(update);
     }, [onGameEnd, spawnObstacle]);
 
@@ -282,12 +335,10 @@ export default function App() {
               marginRight: 15,
             }}
           />
-          <div style={{ color: "white", fontSize: "14px" }}>
-            <b>
-              Urime 1 vjetori i hapjes se <strong>Unity Tech Hub</strong>!
-            </b>
+          <div style={{ color: "white", fontSize: "13px" }}>
+            <b>Unity Tech Hub - 1 Vjetori</b>
             <br />
-            <small>Te luajme dhe festojme se bashku!</small>
+            <small>Mblidh mburojat blu për të mbijetuar</small>
           </div>
         </div>
         <div
@@ -296,7 +347,7 @@ export default function App() {
             aspectRatio: "2/3",
             borderRadius: "15px",
             overflow: "hidden",
-            border: "1px solid #00d2ff",
+            border: "2px solid #1a1b3c",
           }}
         >
           <div
@@ -306,9 +357,10 @@ export default function App() {
               width: "100%",
               textAlign: "center",
               color: "#fff",
-              fontSize: "32px",
+              fontSize: "40px",
               fontWeight: "900",
-              textShadow: "0 0 10px #00d2ff",
+              textShadow: "0 0 15px #00d2ff",
+              zIndex: 10,
             }}
           >
             {currentScore}
@@ -338,12 +390,23 @@ export default function App() {
           className="glass-panel"
           style={styles.screen}
         >
+          <img
+            src={URL_FOTOS}
+            alt=""
+            style={{
+              width: "80px",
+              height: "80px",
+              borderRadius: "50%",
+              objectFit: "cover",
+              border: "2px solid #0fb9b1",
+            }}
+          />
           <h1 style={styles.title}>
-            NEON <span style={{ color: "#fff" }}>DESCENT</span>
+            Unity <span style={{ color: "#fff" }}>Code Rush</span>
           </h1>
           <input
             style={styles.input}
-            placeholder="Shkruaj emrin..."
+            placeholder="Shkruaj emrin tënd..."
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
@@ -353,15 +416,36 @@ export default function App() {
             className="neon-btn btn-cyan"
             style={styles.button}
           >
-            HYR NË LOJË
+            HYR NË TECH HUB
           </button>
         </form>
       )}
 
       {view === "dashboard" && (
         <div className="glass-panel" style={styles.screen}>
-          <h2 style={{ color: "white" }}>
-            Përshëndetje, <span style={{ color: "#0fb9b1" }}>{username}</span>
+          <h2 style={{ color: "white", margin: "0 0 20px 0" }}>
+            <img
+              src={URL_FOTOS}
+              alt=""
+              style={{
+                width: "80px",
+                height: "80px",
+                borderRadius: "50%",
+                objectFit: "cover",
+                border: "2px solid #0fb9b1",
+              }}
+            />
+            <h2
+              style={{
+                color: "white",
+                margin: "0 0 20px 0",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+              }}
+            >
+              Përshëndetje, <span style={{ color: "#0fb9b1" }}>{username}</span>
+            </h2>
           </h2>
           <div style={styles.leaderboardContainer}>
             <h3
@@ -369,28 +453,40 @@ export default function App() {
                 fontSize: "12px",
                 color: "#a4b0be",
                 textAlign: "center",
+                marginBottom: "10px",
               }}
             >
-              🏆 TOP REKORDET
+              RENDITJA AKTUALE
             </h3>
             <table style={styles.table}>
               <tbody>
-                {leaderboard.map((p, i) => (
-                  <tr key={i}>
-                    <td style={styles.td}>
-                      #{i + 1} {p.username}
-                    </td>
-                    <td style={styles.td}>{p.score}</td>
-                    <td style={styles.td}>
-                      <button
-                        className="delete-btn"
-                        onClick={(e) => deleteUser(e, p.username)}
-                      >
-                        ✕
-                      </button>
+                {leaderboard.length > 0 ? (
+                  leaderboard.map((p, i) => (
+                    <tr key={i}>
+                      <td style={styles.td}>
+                        #{i + 1} {p.username}
+                      </td>
+                      <td style={styles.td}>{p.score}</td>
+                      <td style={{ ...styles.td, textAlign: "right" }}>
+                        <button
+                          className="delete-btn"
+                          onClick={(e) => deleteUser(e, p.username)}
+                        >
+                          Fshije
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan="3"
+                      style={{ ...styles.td, textAlign: "center" }}
+                    >
+                      Nuk ka rekorde ende...
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
@@ -411,10 +507,29 @@ export default function App() {
 
       {view === "gameover" && (
         <div className="glass-panel" style={styles.screen}>
-          <h1 style={{ color: "#ff4757", textShadow: "0 0 15px #ff4757" }}>
-            GAME OVER
+          <h1
+            style={{
+              color: "#ff4757",
+              textShadow: "0 0 15px #ff4757",
+              marginBottom: "5px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            LOJA PËRFUNDOI
           </h1>
-          <p style={{ fontSize: "28px", fontWeight: "900" }}>{score}</p>
+          <p style={{ color: "#a4b0be", marginBottom: "10px" }}>Pikët e tua:</p>
+          <p
+            style={{
+              fontSize: "48px",
+              fontWeight: "900",
+              margin: "0 0 20px 0",
+              color: "#fff",
+            }}
+          >
+            {score}
+          </p>
           <button
             onClick={() => setView("playing")}
             className="neon-btn btn-cyan"
@@ -426,7 +541,7 @@ export default function App() {
             onClick={() => setView("dashboard")}
             style={{ ...styles.buttonOutlined, marginTop: "15px" }}
           >
-            KTHEHU TE REKORDET
+            REKORDET
           </button>
         </div>
       )}
@@ -440,18 +555,19 @@ const styles = {
     height: "100vh",
     backgroundColor: "#050810",
     backgroundImage:
-      "radial-gradient(circle at center, #1a1b3c 0%, #050810 100%)",
+      "radial-gradient(circle at center, #111428 0%, #050810 100%)",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
     color: "#fff",
-    fontFamily: "sans-serif",
+    fontFamily: "'Segoe UI', sans-serif",
   },
   screen: {
     padding: "40px",
-    borderRadius: "20px",
+    borderRadius: "24px",
     display: "flex",
     flexDirection: "column",
+    textAlign: "center",
     alignItems: "center",
     width: "90%",
     maxWidth: "400px",
@@ -461,49 +577,49 @@ const styles = {
     fontSize: "32px",
     fontWeight: "900",
     marginBottom: "30px",
-    letterSpacing: "2px",
+    letterSpacing: "3px",
   },
   input: {
     width: "100%",
     padding: "15px",
     marginBottom: "20px",
-    borderRadius: "10px",
-    border: "1px solid #0fb9b1",
-    background: "rgba(0,0,0,0.5)",
+    borderRadius: "12px",
+    border: "1px solid rgba(15, 185, 177, 0.3)",
+    background: "rgba(0,0,0,0.3)",
     color: "#fff",
     textAlign: "center",
+    outline: "none",
   },
   button: {
     padding: "15px 30px",
-    background: "#0fb9b1",
-    border: "none",
-    borderRadius: "10px",
-    color: "#fff",
+    borderRadius: "12px",
     fontWeight: "bold",
     cursor: "pointer",
+    width: "100%",
+    border: "none",
   },
   buttonOutlined: {
     background: "none",
-    border: "1px solid rgba(255,255,255,0.2)",
+    border: "1px solid rgba(255,255,255,0.1)",
     color: "#a4b0be",
-    padding: "10px",
-    borderRadius: "10px",
+    padding: "12px",
+    borderRadius: "12px",
     cursor: "pointer",
     marginTop: "15px",
     width: "100%",
   },
   leaderboardContainer: {
     width: "100%",
-    maxHeight: "200px",
+    maxHeight: "180px",
     overflowY: "auto",
-    margin: "20px 0",
+    margin: "10px 0 25px 0",
     background: "rgba(0,0,0,0.2)",
-    borderRadius: "10px",
+    borderRadius: "12px",
     padding: "10px",
   },
   table: { width: "100%", borderCollapse: "collapse" },
   td: {
-    padding: "10px 5px",
+    padding: "12px 5px",
     borderBottom: "1px solid rgba(255,255,255,0.05)",
     fontSize: "14px",
   },
