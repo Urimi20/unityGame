@@ -1,10 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import URL_FOTOS from "../image.png";
 
 const topPlayers = [
   { rank: 1, name: "Urim", score: 842 },
-  { rank: 2, name: "Ardit", score: 791 },
-  { rank: 3, name: "Leon", score: 650 },
+  { rank: 2, name: "Arlind", score: 791 },
+  { rank: 3, name: "Uvejs", score: 650 },
 ];
 
 const features = [
@@ -69,15 +75,14 @@ function Stars() {
   );
 
   return (
-    <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
+    <div
+      className="pointer-events-none fixed inset-0 overflow-hidden"
+      aria-hidden="true"
+    >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(0,245,255,0.16),transparent_30%),radial-gradient(circle_at_80%_15%,rgba(177,80,255,0.16),transparent_25%),radial-gradient(circle_at_50%_90%,rgba(0,245,255,0.08),transparent_35%)]" />
       <div className="absolute inset-0 cyber-grid" />
       {stars.map((star) => (
-        <span
-          className="star-particle"
-          key={star.id}
-          style={star}
-        />
+        <span className="star-particle" key={star.id} style={star} />
       ))}
     </div>
   );
@@ -94,7 +99,11 @@ function Navbar({ onPlay }) {
           aria-label="Unity Code Rush home"
         >
           <span className="grid h-10 w-10 place-items-center rounded-full border border-cyan-300/50 bg-cyan-300/10 shadow-[0_0_25px_rgba(0,245,255,.35)]">
-            <img src={URL_FOTOS} alt="" className="h-8 w-8 rounded-full object-cover" />
+            <img
+              src={URL_FOTOS}
+              alt=""
+              className="h-8 w-8 rounded-full object-cover"
+            />
           </span>
           <span className="font-orbitron text-sm font-black uppercase tracking-[0.25em] text-white group-hover:text-cyan-200">
             UCR
@@ -115,7 +124,11 @@ function Navbar({ onPlay }) {
               {label}
             </button>
           ))}
-          <button className="neon-button neon-button-sm" onClick={onPlay} type="button">
+          <button
+            className="neon-button neon-button-sm"
+            onClick={onPlay}
+            type="button"
+          >
             Play
           </button>
         </div>
@@ -126,7 +139,10 @@ function Navbar({ onPlay }) {
 
 function HeroSection({ onPlay }) {
   return (
-    <section id="home" className="relative mx-auto grid min-h-screen max-w-7xl items-center gap-12 px-5 pb-20 pt-32 lg:grid-cols-[1.05fr_.95fr] lg:px-8">
+    <section
+      id="home"
+      className="relative mx-auto grid min-h-screen max-w-7xl items-center gap-12 px-5 pb-20 pt-32 lg:grid-cols-[1.05fr_.95fr] lg:px-8"
+    >
       <div className="section-reveal relative z-10">
         <div className="mb-6 inline-flex rounded-full border border-cyan-300/25 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.35em] text-cyan-200 shadow-[0_0_35px_rgba(0,245,255,.12)] backdrop-blur-xl">
           Anniversary Launch Arena
@@ -139,13 +155,18 @@ function HeroSection({ onPlay }) {
           Survive the chaos. Beat the leaderboard.
         </p>
         <p className="mt-5 max-w-xl text-base leading-8 text-slate-300/75">
-          A high-speed neon survival challenge built for reflexes, rivalry, and pure esports energy.
+          A high-speed neon survival challenge built for reflexes, rivalry, and
+          pure esports energy.
         </p>
         <div className="mt-10 flex flex-col gap-4 sm:flex-row">
           <button className="neon-button" onClick={onPlay} type="button">
             PLAY NOW
           </button>
-          <button className="neon-button neon-button-purple" onClick={() => scrollToId("leaderboard")} type="button">
+          <button
+            className="neon-button neon-button-purple"
+            onClick={() => scrollToId("leaderboard")}
+            type="button"
+          >
             VIEW LEADERBOARD
           </button>
         </div>
@@ -154,7 +175,11 @@ function HeroSection({ onPlay }) {
         <div className="hero-orb-wrap">
           <div className="hero-orb-ring" />
           <div className="hero-orb">
-            <img src={URL_FOTOS} alt="Unity Code Rush logo" className="h-full w-full rounded-full object-cover" />
+            <img
+              src={URL_FOTOS}
+              alt="Unity Code Rush logo"
+              className="h-full w-full rounded-full object-cover"
+            />
           </div>
           <div className="floating-chip chip-one">LIVE SCORE</div>
           <div className="floating-chip chip-two">SHIELD READY</div>
@@ -166,17 +191,28 @@ function HeroSection({ onPlay }) {
 
 function FeaturesSection() {
   return (
-    <section id="features" className="relative mx-auto max-w-7xl px-5 py-24 lg:px-8">
+    <section
+      id="features"
+      className="relative mx-auto max-w-7xl px-5 py-24 lg:px-8"
+    >
       <div className="section-heading">
         <p className="eyebrow">Combat Systems</p>
         <h2>Designed for speed, power, and bragging rights.</h2>
       </div>
       <div className="mt-12 grid gap-6 md:grid-cols-3">
         {features.map((feature, index) => (
-          <article className="glass-card section-reveal" key={feature.title} style={{ animationDelay: `${index * 120}ms` }}>
+          <article
+            className="glass-card section-reveal"
+            key={feature.title}
+            style={{ animationDelay: `${index * 120}ms` }}
+          >
             <div className="neon-icon">{feature.icon}</div>
-            <h3 className="mt-6 font-orbitron text-xl font-black text-white">{feature.title}</h3>
-            <p className="mt-4 text-sm leading-7 text-slate-300/75">{feature.description}</p>
+            <h3 className="mt-6 font-orbitron text-xl font-black text-white">
+              {feature.title}
+            </h3>
+            <p className="mt-4 text-sm leading-7 text-slate-300/75">
+              {feature.description}
+            </p>
           </article>
         ))}
       </div>
@@ -186,7 +222,10 @@ function FeaturesSection() {
 
 function GamePreview({ onPlay }) {
   return (
-    <section id="preview" className="relative mx-auto max-w-7xl px-5 py-24 lg:px-8">
+    <section
+      id="preview"
+      className="relative mx-auto max-w-7xl px-5 py-24 lg:px-8"
+    >
       <div className="grid items-center gap-12 lg:grid-cols-[.9fr_1.1fr]">
         <div className="section-reveal">
           <p className="eyebrow">Gameplay Preview</p>
@@ -194,7 +233,8 @@ function GamePreview({ onPlay }) {
             The arena never slows down.
           </h2>
           <p className="mt-5 text-lg leading-8 text-slate-300/75">
-            Slip through falling blocks, charge your shield, and keep your cursor locked in the neon storm.
+            Slip through falling blocks, charge your shield, and keep your
+            cursor locked in the neon storm.
           </p>
           <button className="neon-button mt-8" onClick={onPlay} type="button">
             Watch Gameplay
@@ -206,7 +246,9 @@ function GamePreview({ onPlay }) {
               <span>UCR / ARENA-01</span>
               <span>842</span>
             </div>
-            <div className="preview-player"><img src={URL_FOTOS} alt="Player avatar" /></div>
+            <div className="preview-player">
+              <img src={URL_FOTOS} alt="Player avatar" />
+            </div>
             <span className="preview-block block-a" />
             <span className="preview-block block-b" />
             <span className="preview-block block-c" />
@@ -221,7 +263,10 @@ function GamePreview({ onPlay }) {
 
 function LeaderboardSection() {
   return (
-    <section id="leaderboard" className="relative mx-auto max-w-5xl px-5 py-24 lg:px-8">
+    <section
+      id="leaderboard"
+      className="relative mx-auto max-w-5xl px-5 py-24 lg:px-8"
+    >
       <div className="section-heading">
         <p className="eyebrow">Live Leaderboard</p>
         <h2>Top pilots in the neon rush.</h2>
@@ -241,8 +286,12 @@ function LeaderboardSection() {
                 <td className="rounded-l-2xl px-4 py-4">
                   <span className="rank-badge">#{player.rank}</span>
                 </td>
-                <td className="px-4 py-4 font-orbitron text-lg font-bold text-white">{player.name}</td>
-                <td className="rounded-r-2xl px-4 py-4 text-right text-2xl font-black text-cyan-100">{player.score}</td>
+                <td className="px-4 py-4 font-orbitron text-lg font-bold text-white">
+                  {player.name}
+                </td>
+                <td className="rounded-r-2xl px-4 py-4 text-right text-2xl font-black text-cyan-100">
+                  {player.score}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -261,7 +310,9 @@ function AboutSection() {
           Built for Unity Tech Hub Anniversary
         </h2>
         <p className="mx-auto mt-6 max-w-3xl text-lg leading-8 text-slate-300/75">
-          Unity Code Rush celebrates the energy of the community with a futuristic mini-game made for quick matches, live-event competition, and unforgettable anniversary moments.
+          Unity Code Rush celebrates the energy of the community with a
+          futuristic mini-game made for quick matches, live-event competition,
+          and unforgettable anniversary moments.
         </p>
       </div>
     </section>
@@ -368,7 +419,9 @@ function GameEngine({ onGameEnd }) {
       size,
       speedY: (4.5 + Math.random() * 3) * difficultyRef.current,
       speedX: (Math.random() - 0.5) * 2,
-      color: ["#ff6b81", "#ffd32a", "#a55eea", "#ff4757"][Math.floor(Math.random() * 4)],
+      color: ["#ff6b81", "#ffd32a", "#a55eea", "#ff4757"][
+        Math.floor(Math.random() * 4)
+      ],
     });
 
     if (Math.random() < 0.04) {
@@ -418,7 +471,8 @@ function GameEngine({ onGameEnd }) {
     if (!isDeadRef.current) {
       frameCountRef.current++;
       scoreRef.current += 0.2;
-      if (frameCountRef.current % 5 === 0) setCurrentScore(Math.floor(scoreRef.current));
+      if (frameCountRef.current % 5 === 0)
+        setCurrentScore(Math.floor(scoreRef.current));
       if (frameCountRef.current % 180 === 0) difficultyRef.current += 0.2;
       if (frameCountRef.current % 25 === 0) spawnObstacle();
 
@@ -436,7 +490,13 @@ function GameEngine({ onGameEnd }) {
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
         ctx.clip();
-        ctx.drawImage(logoRef.current, p.x - p.radius, p.y - p.radius, p.radius * 2, p.radius * 2);
+        ctx.drawImage(
+          logoRef.current,
+          p.x - p.radius,
+          p.y - p.radius,
+          p.radius * 2,
+          p.radius * 2,
+        );
         ctx.restore();
       }
     }
@@ -451,7 +511,10 @@ function GameEngine({ onGameEnd }) {
       ctx.arc(pw.x, pw.y, pw.size / 2, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
-      if (!isDeadRef.current && Math.hypot(p.x - pw.x, p.y - pw.y) < p.radius + pw.size / 2) {
+      if (
+        !isDeadRef.current &&
+        Math.hypot(p.x - pw.x, p.y - pw.y) < p.radius + pw.size / 2
+      ) {
         p.hasShield = true;
         powerUpsRef.current.splice(i, 1);
       }
@@ -473,7 +536,10 @@ function GameEngine({ onGameEnd }) {
       ctx.fill();
       ctx.shadowBlur = 0;
 
-      if (!isDeadRef.current && Math.hypot(p.x - o.x, p.y - o.y) < p.radius + o.size * 0.45) {
+      if (
+        !isDeadRef.current &&
+        Math.hypot(p.x - o.x, p.y - o.y) < p.radius + o.size * 0.45
+      ) {
         if (p.hasShield) {
           p.hasShield = false;
           createExplosion(o.x, o.y, "#00d2ff");
@@ -487,7 +553,8 @@ function GameEngine({ onGameEnd }) {
       if (o.y > H + 50) obstaclesRef.current.splice(i, 1);
     }
 
-    if (!isDeadRef.current || particlesRef.current.length > 0) requestRef.current = requestAnimationFrame(update);
+    if (!isDeadRef.current || particlesRef.current.length > 0)
+      requestRef.current = requestAnimationFrame(update);
   }, [onGameEnd, spawnObstacle]);
 
   useEffect(() => {
@@ -539,7 +606,8 @@ function GamePortal() {
   const [leaderboard, setLeaderboard] = useState([]);
 
   useEffect(() => {
-    const savedLeaderboard = JSON.parse(localStorage.getItem("neonLeaderboard")) || [];
+    const savedLeaderboard =
+      JSON.parse(localStorage.getItem("neonLeaderboard")) || [];
     setLeaderboard(savedLeaderboard);
     const savedUser = localStorage.getItem("neonCurrentUser");
     if (savedUser) setUsername(savedUser);
@@ -550,7 +618,8 @@ function GamePortal() {
     const board = JSON.parse(localStorage.getItem("neonLeaderboard")) || [];
     const existingPlayerIndex = board.findIndex((p) => p.username === username);
     if (existingPlayerIndex >= 0) {
-      if (finalScore > board[existingPlayerIndex].score) board[existingPlayerIndex].score = finalScore;
+      if (finalScore > board[existingPlayerIndex].score)
+        board[existingPlayerIndex].score = finalScore;
     } else {
       board.push({ username, score: finalScore });
     }
@@ -585,7 +654,11 @@ function GamePortal() {
     <div className="game-portal">
       {view === "intro" && (
         <form onSubmit={handleLogin} className="glass-panel game-screen">
-          <button className="back-link" onClick={() => window.location.reload()} type="button">
+          <button
+            className="back-link"
+            onClick={() => window.location.reload()}
+            type="button"
+          >
             ← Landing
           </button>
           <img src={URL_FOTOS} alt="" className="game-logo" />
@@ -618,10 +691,16 @@ function GamePortal() {
                 {leaderboard.length > 0 ? (
                   leaderboard.map((p, i) => (
                     <tr key={`${p.username}-${i}`}>
-                      <td>#{i + 1} {p.username}</td>
+                      <td>
+                        #{i + 1} {p.username}
+                      </td>
                       <td>{p.score}</td>
                       <td className="text-right">
-                        <button className="delete-btn" onClick={(e) => deleteUser(e, p.username)} type="button">
+                        <button
+                          className="delete-btn"
+                          onClick={(e) => deleteUser(e, p.username)}
+                          type="button"
+                        >
                           Fshije
                         </button>
                       </td>
@@ -637,10 +716,18 @@ function GamePortal() {
               </tbody>
             </table>
           </div>
-          <button onClick={() => setView("playing")} className="neon-btn btn-cyan game-button" type="button">
+          <button
+            onClick={() => setView("playing")}
+            className="neon-btn btn-cyan game-button"
+            type="button"
+          >
             FILLO LOJËN
           </button>
-          <button onClick={handleLogout} className="game-button-outlined" type="button">
+          <button
+            onClick={handleLogout}
+            className="game-button-outlined"
+            type="button"
+          >
             NDRYSHO EMRIN
           </button>
         </div>
@@ -653,10 +740,18 @@ function GamePortal() {
           <h1 className="game-over-title">LOJA PËRFUNDOI</h1>
           <p className="game-muted">Pikët e tua:</p>
           <p className="game-final-score">{score}</p>
-          <button onClick={() => setView("playing")} className="neon-btn btn-cyan game-button" type="button">
+          <button
+            onClick={() => setView("playing")}
+            className="neon-btn btn-cyan game-button"
+            type="button"
+          >
             PROVO PËRSËRI
           </button>
-          <button onClick={() => setView("dashboard")} className="game-button-outlined" type="button">
+          <button
+            onClick={() => setView("dashboard")}
+            className="game-button-outlined"
+            type="button"
+          >
             REKORDET
           </button>
         </div>
@@ -677,7 +772,11 @@ export default function App() {
   return (
     <>
       {loading && <LoadingScreen />}
-      {mode === "landing" ? <LandingPage onPlay={() => setMode("game")} /> : <GamePortal />}
+      {mode === "landing" ? (
+        <LandingPage onPlay={() => setMode("game")} />
+      ) : (
+        <GamePortal />
+      )}
     </>
   );
 }
