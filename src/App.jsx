@@ -1,38 +1,88 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import URL_FOTOS from "../image.png";
-
-const topPlayers = [
-  { rank: 1, name: "Urim", score: 842 },
-  { rank: 2, name: "Arlind", score: 791 },
-  { rank: 3, name: "Uvejs", score: 650 },
-];
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import URL_FOTOS from "/vite.svg";
+import {
+  AGE_GROUPS,
+  MAX_WORD_ATTEMPTS,
+  MEMORY_DIFFICULTIES,
+  WORD_GUESS_LEVELS,
+} from "./data/gameData";
+import {
+  fetchUsers,
+  getOrCreateUser,
+  saveUser,
+  sortUsersByScore,
+} from "./services/userApi";
+import {
+  calculateMemoryFinalScore,
+  calculateWordPoints,
+  createMemoryDeck,
+  evaluateWordGuess,
+  formatTime,
+  getAttemptsRemaining,
+  filterUsersByAgeGroup,
+  getUnlockedWordLevel,
+  getWordLevel,
+  normalizeCompletedLevels,
+  sanitizeUsername,
+  sortLevels,
+} from "./utils/gameUtils";
 
 const features = [
   {
-    icon: "⚡",
+    icon: "RX",
     title: "Fast Reflex Gameplay",
     description:
       "Dodge neon hazards in a rapid-fire survival loop tuned for instant reactions.",
   },
   {
-    icon: "🛡",
-    title: "Shield Power-Ups",
+    icon: "WG",
+    title: "Word Guess Levels",
     description:
-      "Grab cyan shields at the perfect moment and blast through chaos like a pro.",
+      "Solve ten extendable Wordle-style stages and unlock each next word automatically.",
   },
   {
-    icon: "🏆",
-    title: "Competitive Leaderboards",
+    icon: "MM",
+    title: "Memory Match",
     description:
-      "Chase the top score, flex your rank, and keep the arena rivalry alive.",
+      "Flip cards, chain matches, and chase a sharper best score across three difficulties.",
   },
 ];
+
+const landingGameModes = [
+  {
+    code: "RUN",
+    title: "Code Rush",
+    description:
+      "The original survival arena with shields, hazards, and score chasing.",
+  },
+  {
+    code: "WORD",
+    title: "Word Guess",
+    description:
+      "A ten-level hidden-word challenge with Wordle-style feedback.",
+  },
+  {
+    code: "MATCH",
+    title: "Memory Match",
+    description:
+      "A card matching game with score, moves, timer, and difficulty tiers.",
+  },
+];
+
+const playSteps = [
+  "Enter a username to create or load an API-backed profile.",
+  "Choose Code Rush, Word Guess, or Memory Match from the game hub.",
+  "Finish levels and matches to save progress, score, and last played time.",
+];
+
+const gameViewByAgeGroup = {
+  "6-11": "playing",
+  "12-15": "word",
+  "16+": "memory",
+};
+
+const getAgeGroup = (ageGroup) =>
+  AGE_GROUPS.find((group) => group.key === ageGroup) ?? AGE_GROUPS[0];
 
 const scrollToId = (id) => {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
@@ -79,7 +129,7 @@ function Stars() {
       className="pointer-events-none fixed inset-0 overflow-hidden"
       aria-hidden="true"
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(0,245,255,0.16),transparent_30%),radial-gradient(circle_at_80%_15%,rgba(177,80,255,0.16),transparent_25%),radial-gradient(circle_at_50%_90%,rgba(0,245,255,0.08),transparent_35%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(0,245,255,0.16),transparent_30%),radial-gradient(circle_at_80%_15%,rgba(255,178,77,0.12),transparent_25%),radial-gradient(circle_at_50%_90%,rgba(82,255,168,0.08),transparent_35%)]" />
       <div className="absolute inset-0 cyber-grid" />
       {stars.map((star) => (
         <span className="star-particle" key={star.id} style={star} />
@@ -112,7 +162,8 @@ function Navbar({ onPlay }) {
         <div className="hidden items-center gap-8 md:flex">
           {[
             ["Home", "home"],
-            ["Features", "features"],
+            ["Games", "games"],
+            ["How to Play", "instructions"],
             ["Leaderboard", "leaderboard"],
           ].map(([label, id]) => (
             <button
@@ -152,22 +203,22 @@ function HeroSection({ onPlay }) {
           <span className="neon-title-purple block">Code Rush</span>
         </h1>
         <p className="mt-6 max-w-2xl text-xl font-semibold text-cyan-50/80 sm:text-2xl">
-          Survive the chaos. Beat the leaderboard.
+          Three game modes. One live API leaderboard.
         </p>
         <p className="mt-5 max-w-xl text-base leading-8 text-slate-300/75">
-          A high-speed neon survival challenge built for reflexes, rivalry, and
-          pure esports energy.
+          Enter the neon hub, play reflex, word, and memory challenges, and keep
+          every score synced to your profile.
         </p>
         <div className="mt-10 flex flex-col gap-4 sm:flex-row">
           <button className="neon-button" onClick={onPlay} type="button">
-            PLAY NOW
+            Open Game Hub
           </button>
           <button
             className="neon-button neon-button-purple"
             onClick={() => scrollToId("leaderboard")}
             type="button"
           >
-            VIEW LEADERBOARD
+            View Leaderboard
           </button>
         </div>
       </div>
@@ -181,8 +232,8 @@ function HeroSection({ onPlay }) {
               className="h-full w-full rounded-full object-cover"
             />
           </div>
-          <div className="floating-chip chip-one">LIVE SCORE</div>
-          <div className="floating-chip chip-two">SHIELD READY</div>
+          <div className="floating-chip chip-one">API SYNC</div>
+          <div className="floating-chip chip-two">3 MODES</div>
         </div>
       </div>
     </section>
@@ -193,11 +244,11 @@ function FeaturesSection() {
   return (
     <section
       id="features"
-      className="relative mx-auto max-w-7xl px-5 py-24 lg:px-8"
+      className="relative mx-auto max-w-7xl px-5 py-20 lg:px-8"
     >
       <div className="section-heading">
         <p className="eyebrow">Combat Systems</p>
-        <h2>Designed for speed, power, and bragging rights.</h2>
+        <h2>Designed for speed, logic, memory, and bragging rights.</h2>
       </div>
       <div className="mt-12 grid gap-6 md:grid-cols-3">
         {features.map((feature, index) => (
@@ -220,11 +271,61 @@ function FeaturesSection() {
   );
 }
 
+function GameModesSection({ onPlay }) {
+  return (
+    <section
+      id="games"
+      className="relative mx-auto max-w-7xl px-5 py-20 lg:px-8"
+    >
+      <div className="section-heading">
+        <p className="eyebrow">Game Hub</p>
+        <h2>Pick a mode and build your profile score.</h2>
+      </div>
+      <div className="mode-preview-grid mt-12">
+        {landingGameModes.map((mode) => (
+          <article className="mode-preview" key={mode.title}>
+            <span>{mode.code}</span>
+            <h3>{mode.title}</h3>
+            <p>{mode.description}</p>
+          </article>
+        ))}
+      </div>
+      <div className="mt-10 text-center">
+        <button className="neon-button" onClick={onPlay} type="button">
+          Start Playing
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function HowToPlaySection() {
+  return (
+    <section
+      id="instructions"
+      className="relative mx-auto max-w-6xl px-5 py-20 lg:px-8"
+    >
+      <div className="section-heading">
+        <p className="eyebrow">Join and Play</p>
+        <h2>Fast entry, persistent progress.</h2>
+      </div>
+      <ol className="play-steps mt-12">
+        {playSteps.map((step, index) => (
+          <li key={step}>
+            <span>{index + 1}</span>
+            <p>{step}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 function GamePreview({ onPlay }) {
   return (
     <section
       id="preview"
-      className="relative mx-auto max-w-7xl px-5 py-24 lg:px-8"
+      className="relative mx-auto max-w-7xl px-5 py-20 lg:px-8"
     >
       <div className="grid items-center gap-12 lg:grid-cols-[.9fr_1.1fr]">
         <div className="section-reveal">
@@ -237,7 +338,7 @@ function GamePreview({ onPlay }) {
             cursor locked in the neon storm.
           </p>
           <button className="neon-button mt-8" onClick={onPlay} type="button">
-            Watch Gameplay
+            Enter Hub
           </button>
         </div>
         <div className="preview-frame section-reveal">
@@ -261,41 +362,126 @@ function GamePreview({ onPlay }) {
   );
 }
 
-function LeaderboardSection() {
+function LeaderboardTable({ users, loading, error, maxRows = 10 }) {
+  const rows = users.slice(0, maxRows);
+
+  if (loading) {
+    return <div className="leaderboard-empty">Syncing leaderboard...</div>;
+  }
+
+  if (error) {
+    return <div className="leaderboard-empty error">{error}</div>;
+  }
+
+  if (rows.length === 0) {
+    return <div className="leaderboard-empty">No scores saved yet.</div>;
+  }
+
+  return (
+    <table className="live-leaderboard-table">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Nickname</th>
+          <th>Score</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((player, index) => {
+          const displayName = player.nickname || player.username || "Player";
+          return (
+            <tr className="leaderboard-row" key={player.id || displayName}>
+              <td>
+                <span className="rank-badge">#{index + 1}</span>
+              </td>
+              <td className="player-name">{displayName}</td>
+              <td className="player-score">{player.score}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
+function AgeGroupLeaderboard({
+  leaderboard,
+  loading,
+  error,
+  maxRows = 10,
+  defaultAgeGroup = AGE_GROUPS[0].key,
+  onRefreshLeaderboard,
+}) {
+  const [activeAgeGroup, setActiveAgeGroup] = useState(defaultAgeGroup);
+
+  useEffect(() => {
+    setActiveAgeGroup(defaultAgeGroup);
+  }, [defaultAgeGroup]);
+
+  const activeGroup = getAgeGroup(activeAgeGroup);
+  const filteredLeaderboard = useMemo(
+    () => filterUsersByAgeGroup(leaderboard, activeGroup.key),
+    [leaderboard, activeGroup.key],
+  );
+
+  return (
+    <>
+      <div className="leaderboard-toolbar">
+        <span>
+          {activeGroup.tabLabel} / {activeGroup.game}
+        </span>
+        <button
+          className="mini-action"
+          onClick={onRefreshLeaderboard}
+          type="button"
+        >
+          Refresh
+        </button>
+      </div>
+      <div className="difficulty-tabs leaderboard-age-tabs">
+        {AGE_GROUPS.map((group) => (
+          <button
+            className={group.key === activeGroup.key ? "active" : ""}
+            key={group.key}
+            onClick={() => setActiveAgeGroup(group.key)}
+            type="button"
+          >
+            {group.tabLabel}
+          </button>
+        ))}
+      </div>
+      <LeaderboardTable
+        users={filteredLeaderboard}
+        loading={loading}
+        error={error}
+        maxRows={maxRows}
+      />
+    </>
+  );
+}
+
+function LeaderboardSection({
+  leaderboard,
+  loading,
+  error,
+  onRefreshLeaderboard,
+}) {
   return (
     <section
       id="leaderboard"
-      className="relative mx-auto max-w-5xl px-5 py-24 lg:px-8"
+      className="relative mx-auto max-w-5xl px-5 py-20 lg:px-8"
     >
       <div className="section-heading">
         <p className="eyebrow">Live Leaderboard</p>
         <h2>Top pilots in the neon rush.</h2>
       </div>
-      <div className="glass-card mt-12 overflow-hidden p-0">
-        <table className="w-full border-separate border-spacing-y-3 p-4 text-left">
-          <thead className="text-xs uppercase tracking-[0.3em] text-cyan-200/70">
-            <tr>
-              <th className="px-4 py-3">Rank</th>
-              <th className="px-4 py-3">Player</th>
-              <th className="px-4 py-3 text-right">Score</th>
-            </tr>
-          </thead>
-          <tbody>
-            {topPlayers.map((player) => (
-              <tr className="leaderboard-row" key={player.name}>
-                <td className="rounded-l-2xl px-4 py-4">
-                  <span className="rank-badge">#{player.rank}</span>
-                </td>
-                <td className="px-4 py-4 font-orbitron text-lg font-bold text-white">
-                  {player.name}
-                </td>
-                <td className="rounded-r-2xl px-4 py-4 text-right text-2xl font-black text-cyan-100">
-                  {player.score}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="leaderboard-shell mt-12">
+        <AgeGroupLeaderboard
+          leaderboard={leaderboard}
+          loading={loading}
+          error={error}
+          onRefreshLeaderboard={onRefreshLeaderboard}
+        />
       </div>
     </section>
   );
@@ -303,7 +489,7 @@ function LeaderboardSection() {
 
 function AboutSection() {
   return (
-    <section className="relative mx-auto max-w-5xl px-5 py-24 text-center lg:px-8">
+    <section className="relative mx-auto max-w-5xl px-5 py-20 text-center lg:px-8">
       <div className="glass-card section-reveal">
         <p className="eyebrow">Unity Tech Hub</p>
         <h2 className="mt-3 font-orbitron text-4xl font-black uppercase text-white sm:text-5xl">
@@ -311,8 +497,8 @@ function AboutSection() {
         </h2>
         <p className="mx-auto mt-6 max-w-3xl text-lg leading-8 text-slate-300/75">
           Unity Code Rush celebrates the energy of the community with a
-          futuristic mini-game made for quick matches, live-event competition,
-          and unforgettable anniversary moments.
+          futuristic mini-game hub made for quick matches, live-event
+          competition, and persistent player progress.
         </p>
       </div>
     </section>
@@ -321,14 +507,14 @@ function AboutSection() {
 
 function FinalCta({ onPlay }) {
   return (
-    <section className="relative px-5 py-28">
+    <section className="relative px-5 py-24">
       <div className="cta-panel mx-auto max-w-6xl text-center">
         <p className="eyebrow">Final Gate</p>
         <h2 className="mt-3 font-orbitron text-4xl font-black uppercase text-white sm:text-6xl">
-          Ready to enter the arena?
+          Ready to enter the hub?
         </h2>
         <button className="neon-button mt-10" onClick={onPlay} type="button">
-          START PLAYING
+          Start Playing
         </button>
       </div>
     </section>
@@ -338,30 +524,52 @@ function FinalCta({ onPlay }) {
 function Footer() {
   return (
     <footer className="relative border-t border-cyan-300/10 px-5 py-10 text-center text-sm text-slate-400">
-      <div className="mb-4 flex justify-center gap-4 text-xl">
-        <span className="social-icon">◉</span>
-        <span className="social-icon">◇</span>
-        <span className="social-icon">✦</span>
-      </div>
-      <p>© 2026 Unity Code Rush. Built for Unity Tech Hub Anniversary.</p>
+      <p>2026 Unity Code Rush. Built for Unity Tech Hub Anniversary.</p>
     </footer>
   );
 }
 
-function LandingPage({ onPlay }) {
+function LandingPage({
+  onPlay,
+  leaderboard,
+  leaderboardLoading,
+  leaderboardError,
+  onRefreshLeaderboard,
+}) {
   return (
     <main className="landing-shell">
       <Stars />
       <Navbar onPlay={onPlay} />
       <HeroSection onPlay={onPlay} />
       <FeaturesSection />
+      <GameModesSection onPlay={onPlay} />
+      <HowToPlaySection />
       <GamePreview onPlay={onPlay} />
-      <LeaderboardSection />
+      <LeaderboardSection
+        leaderboard={leaderboard}
+        loading={leaderboardLoading}
+        error={leaderboardError}
+        onRefreshLeaderboard={onRefreshLeaderboard}
+      />
       <AboutSection />
       <FinalCta onPlay={onPlay} />
       <Footer />
     </main>
   );
+}
+
+function StatPill({ label, value }) {
+  return (
+    <div className="stat-pill">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function ActionError({ message }) {
+  if (!message) return null;
+  return <div className="action-error">{message}</div>;
 }
 
 function GameEngine({ onGameEnd }) {
@@ -398,7 +606,7 @@ function GameEngine({ onGameEnd }) {
   }, []);
 
   const createExplosion = (x, y, color) => {
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 15; i += 1) {
       particlesRef.current.push({
         x,
         y,
@@ -419,7 +627,7 @@ function GameEngine({ onGameEnd }) {
       size,
       speedY: (4.5 + Math.random() * 3) * difficultyRef.current,
       speedX: (Math.random() - 0.5) * 2,
-      color: ["#ff6b81", "#ffd32a", "#a55eea", "#ff4757"][
+      color: ["#ff6b81", "#ffd32a", "#52ffa8", "#ff4757"][
         Math.floor(Math.random() * 4)
       ],
     });
@@ -469,10 +677,11 @@ function GameEngine({ onGameEnd }) {
     const p = playerRef.current;
 
     if (!isDeadRef.current) {
-      frameCountRef.current++;
+      frameCountRef.current += 1;
       scoreRef.current += 0.2;
-      if (frameCountRef.current % 5 === 0)
+      if (frameCountRef.current % 5 === 0) {
         setCurrentScore(Math.floor(scoreRef.current));
+      }
       if (frameCountRef.current % 180 === 0) difficultyRef.current += 0.2;
       if (frameCountRef.current % 25 === 0) spawnObstacle();
 
@@ -501,48 +710,56 @@ function GameEngine({ onGameEnd }) {
       }
     }
 
-    for (let i = powerUpsRef.current.length - 1; i >= 0; i--) {
-      const pw = powerUpsRef.current[i];
-      pw.y += pw.speedY;
+    for (let i = powerUpsRef.current.length - 1; i >= 0; i -= 1) {
+      const powerUp = powerUpsRef.current[i];
+      powerUp.y += powerUp.speedY;
       ctx.fillStyle = "#00d2ff";
       ctx.shadowBlur = 15;
       ctx.shadowColor = "#00d2ff";
       ctx.beginPath();
-      ctx.arc(pw.x, pw.y, pw.size / 2, 0, Math.PI * 2);
+      ctx.arc(powerUp.x, powerUp.y, powerUp.size / 2, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
       if (
         !isDeadRef.current &&
-        Math.hypot(p.x - pw.x, p.y - pw.y) < p.radius + pw.size / 2
+        Math.hypot(p.x - powerUp.x, p.y - powerUp.y) <
+          p.radius + powerUp.size / 2
       ) {
         p.hasShield = true;
         powerUpsRef.current.splice(i, 1);
       }
-      if (pw.y > H + 50) powerUpsRef.current.splice(i, 1);
+      if (powerUp.y > H + 50) powerUpsRef.current.splice(i, 1);
     }
 
-    for (let i = obstaclesRef.current.length - 1; i >= 0; i--) {
-      const o = obstaclesRef.current[i];
+    for (let i = obstaclesRef.current.length - 1; i >= 0; i -= 1) {
+      const obstacle = obstaclesRef.current[i];
       if (!isDeadRef.current) {
-        o.y += o.speedY;
-        o.x += o.speedX;
+        obstacle.y += obstacle.speedY;
+        obstacle.x += obstacle.speedX;
       }
 
-      ctx.fillStyle = o.color;
+      ctx.fillStyle = obstacle.color;
       ctx.shadowBlur = 10;
-      ctx.shadowColor = o.color;
+      ctx.shadowColor = obstacle.color;
       ctx.beginPath();
-      ctx.roundRect(o.x - o.size / 2, o.y - o.size / 2, o.size, o.size, 6);
+      ctx.roundRect(
+        obstacle.x - obstacle.size / 2,
+        obstacle.y - obstacle.size / 2,
+        obstacle.size,
+        obstacle.size,
+        6,
+      );
       ctx.fill();
       ctx.shadowBlur = 0;
 
       if (
         !isDeadRef.current &&
-        Math.hypot(p.x - o.x, p.y - o.y) < p.radius + o.size * 0.45
+        Math.hypot(p.x - obstacle.x, p.y - obstacle.y) <
+          p.radius + obstacle.size * 0.45
       ) {
         if (p.hasShield) {
           p.hasShield = false;
-          createExplosion(o.x, o.y, "#00d2ff");
+          createExplosion(obstacle.x, obstacle.y, "#00d2ff");
           obstaclesRef.current.splice(i, 1);
         } else {
           isDeadRef.current = true;
@@ -550,24 +767,27 @@ function GameEngine({ onGameEnd }) {
           setTimeout(() => onGameEnd(Math.floor(scoreRef.current)), 1200);
         }
       }
-      if (o.y > H + 50) obstaclesRef.current.splice(i, 1);
+      if (obstacle.y > H + 50) obstaclesRef.current.splice(i, 1);
     }
 
-    if (!isDeadRef.current || particlesRef.current.length > 0)
+    if (!isDeadRef.current || particlesRef.current.length > 0) {
       requestRef.current = requestAnimationFrame(update);
+    }
   }, [onGameEnd, spawnObstacle]);
 
   useEffect(() => {
     requestRef.current = requestAnimationFrame(update);
-    return () => cancelAnimationFrame(requestRef.current);
+    return () => {
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    };
   }, [update]);
 
-  const handleInput = (e) => {
-    if (isDeadRef.current) return;
+  const handleInput = (event) => {
+    if (isDeadRef.current || !canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const touch = e.touches?.[0];
-    const clientX = touch ? touch.clientX : e.clientX;
-    const clientY = touch ? touch.clientY : e.clientY;
+    const touch = event.touches?.[0];
+    const clientX = touch ? touch.clientX : event.clientX;
+    const clientY = touch ? touch.clientY : event.clientY;
     playerRef.current.x = (clientX - rect.left) * (W / rect.width);
     playerRef.current.y = (clientY - rect.top) * (H / rect.height);
   };
@@ -577,9 +797,9 @@ function GameEngine({ onGameEnd }) {
       <div className="urimi-banner">
         <img src={URL_FOTOS} alt="Logo" />
         <div>
-          <b>Unity Tech Hub - 1 Vjetori</b>
+          <b>Unity Tech Hub - Anniversary</b>
           <br />
-          <small>Mblidh mburojat blu për të mbijetuar</small>
+          <small>Collect blue shields to survive</small>
         </div>
       </div>
       <div className="game-canvas-shell">
@@ -589,9 +809,9 @@ function GameEngine({ onGameEnd }) {
           width={W}
           height={H}
           onMouseMove={handleInput}
-          onTouchMove={(e) => {
-            e.preventDefault();
-            handleInput(e);
+          onTouchMove={(event) => {
+            event.preventDefault();
+            handleInput(event);
           }}
         />
       </div>
@@ -599,162 +819,895 @@ function GameEngine({ onGameEnd }) {
   );
 }
 
-function GamePortal() {
-  const [view, setView] = useState("intro");
-  const [username, setUsername] = useState("");
+function IntroScreen({
+  username,
+  onUsernameChange,
+  onLogin,
+  onLanding,
+  loading,
+  error,
+}) {
+  return (
+    <form onSubmit={onLogin} className="glass-panel game-screen">
+      <button className="back-link" onClick={onLanding} type="button">
+        Back to Landing
+      </button>
+      <img src={URL_FOTOS} alt="" className="game-logo" />
+      <h1 className="game-title">
+        Unity <span>Code Rush</span>
+      </h1>
+      <p className="portal-copy">
+        Your username loads a profile from the game API or creates one.
+      </p>
+      <input
+        className="game-input"
+        placeholder="Enter username..."
+        value={username}
+        onChange={(event) => onUsernameChange(event.target.value)}
+        disabled={loading}
+        required
+      />
+      <button
+        type="submit"
+        className="neon-btn btn-cyan game-button"
+        disabled={loading}
+      >
+        {loading ? "Loading profile..." : "Enter Game Hub"}
+      </button>
+      <ActionError message={error} />
+    </form>
+  );
+}
+
+function AgeGroupSelection({ onSelectAgeGroup, selectingAgeGroup }) {
+  return (
+    <section aria-labelledby="age-group-title">
+      <div className="dashboard-age-heading">
+        <p className="eyebrow" id="age-group-title">
+          Zgjidh Grupmoshën
+        </p>
+      </div>
+      <div className="mode-grid">
+        {AGE_GROUPS.map((group) => {
+          const cardClass =
+            group.key === "12-15"
+              ? "mode-card word"
+              : group.key === "16+"
+                ? "mode-card memory"
+                : "mode-card";
+          return (
+            <button
+              className={cardClass}
+              disabled={Boolean(selectingAgeGroup)}
+              key={group.key}
+              onClick={() => onSelectAgeGroup(group.key)}
+              type="button"
+            >
+              <span>{group.tabLabel}</span>
+              <strong>{group.game}</strong>
+              <small>
+                {selectingAgeGroup === group.key
+                  ? "Loading game..."
+                  : group.gameTagline}
+              </small>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function Dashboard({
+  user,
+  leaderboard,
+  leaderboardLoading,
+  leaderboardError,
+  onSelectAgeGroup,
+  selectingAgeGroup,
+  onOpenLeaderboard,
+  onLogout,
+  onLanding,
+  onRefreshLeaderboard,
+}) {
+  const completedLevels = normalizeCompletedLevels(user.completedWordleLevels);
+  const unlockedLevel = getUnlockedWordLevel(completedLevels);
+
+  return (
+    <div className="glass-panel portal-layout">
+      <div className="portal-topbar">
+        <button className="small-ghost" onClick={onLanding} type="button">
+          Landing
+        </button>
+        <div>
+          <p className="eyebrow">Game Hub</p>
+          <h2 className="game-greeting">
+            Hello, <span>{user.username}</span>
+          </h2>
+        </div>
+        <button className="small-ghost danger" onClick={onLogout} type="button">
+          Change Player
+        </button>
+      </div>
+
+      <div className="stat-grid">
+        <StatPill label="Score" value={user.score} />
+        <StatPill
+          label="Word Levels"
+          value={`${completedLevels.length}/${WORD_GUESS_LEVELS.length}`}
+        />
+        <StatPill label="Next Word Level" value={unlockedLevel} />
+        <StatPill label="Memory Best" value={user.memoryGameBestScore} />
+      </div>
+
+      <AgeGroupSelection
+        onSelectAgeGroup={onSelectAgeGroup}
+        selectingAgeGroup={selectingAgeGroup}
+      />
+
+      <section className="portal-section">
+        <AgeGroupLeaderboard
+          leaderboard={leaderboard}
+          loading={leaderboardLoading}
+          error={leaderboardError}
+          maxRows={5}
+          defaultAgeGroup={user.ageGroup}
+          onRefreshLeaderboard={onRefreshLeaderboard}
+        />
+        <button
+          className="game-button-outlined"
+          onClick={onOpenLeaderboard}
+          type="button"
+        >
+          Open Full Leaderboard
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function FullLeaderboardPage({
+  leaderboard,
+  leaderboardLoading,
+  leaderboardError,
+  onBack,
+  onRefreshLeaderboard,
+  defaultAgeGroup,
+}) {
+  return (
+    <div className="glass-panel portal-layout">
+      <div className="portal-topbar">
+        <button className="small-ghost" onClick={onBack} type="button">
+          Back
+        </button>
+        <div>
+          <p className="eyebrow">Live Rankings</p>
+          <h2 className="game-greeting">Leaderboard</h2>
+        </div>
+        <button
+          className="small-ghost"
+          onClick={onRefreshLeaderboard}
+          type="button"
+        >
+          Refresh
+        </button>
+      </div>
+      <AgeGroupLeaderboard
+        leaderboard={leaderboard}
+        loading={leaderboardLoading}
+        error={leaderboardError}
+        maxRows={20}
+        defaultAgeGroup={defaultAgeGroup}
+        onRefreshLeaderboard={onRefreshLeaderboard}
+      />
+    </div>
+  );
+}
+
+function WordGuessGame({
+  user,
+  onBack,
+  onCompleteLevel,
+  onOpenLeaderboard,
+  isSaving,
+}) {
+  const completedLevels = useMemo(
+    () => normalizeCompletedLevels(user.completedWordleLevels),
+    [user.completedWordleLevels],
+  );
+  const unlockedLevel = getUnlockedWordLevel(completedLevels);
+  const [activeLevel, setActiveLevel] = useState(unlockedLevel);
+  const [history, setHistory] = useState([]);
+  const [currentGuess, setCurrentGuess] = useState("");
+  const [status, setStatus] = useState("playing");
+  const [message, setMessage] = useState(
+    "Use five letters to reveal the code.",
+  );
+
+  const level = getWordLevel(activeLevel);
+  const attemptsRemaining = getAttemptsRemaining(history.length);
+  const nextLevelNumber = Math.min(level.level + 1, WORD_GUESS_LEVELS.length);
+  const hasNextLevel = level.level < WORD_GUESS_LEVELS.length;
+  const canContinue =
+    status === "won" && hasNextLevel && nextLevelNumber <= unlockedLevel;
+  const progressPercent =
+    (completedLevels.length / WORD_GUESS_LEVELS.length) * 100;
+
+  const resetRound = useCallback(
+    (nextLevel = activeLevel) => {
+      setActiveLevel(nextLevel);
+      setHistory([]);
+      setCurrentGuess("");
+      setStatus("playing");
+      setMessage("Use five letters to reveal the code.");
+    },
+    [activeLevel],
+  );
+
+  const handleLevelSelect = (levelNumber) => {
+    if (levelNumber > unlockedLevel) return;
+    resetRound(levelNumber);
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (status !== "playing" || isSaving) return;
+
+    const guess = currentGuess.toUpperCase();
+    if (guess.length !== level.word.length) {
+      setMessage(`Enter exactly ${level.word.length} letters.`);
+      return;
+    }
+
+    const evaluation = evaluateWordGuess(guess, level.word);
+    const nextHistory = [...history, { guess, evaluation }];
+    const nextAttemptsRemaining = getAttemptsRemaining(nextHistory.length);
+    setHistory(nextHistory);
+    setCurrentGuess("");
+
+    if (guess === level.word) {
+      const points = calculateWordPoints(level, nextAttemptsRemaining);
+      setStatus("won");
+      setMessage("Solved. Saving level progress...");
+
+      try {
+        await onCompleteLevel(level.level, points);
+        setMessage(
+          completedLevels.includes(level.level)
+            ? "Solved again. This level was already saved."
+            : `Solved. +${points} score saved.`,
+        );
+      } catch (error) {
+        setMessage(error.message || "Solved, but progress could not be saved.");
+      }
+      return;
+    }
+
+    if (nextAttemptsRemaining === 0) {
+      setStatus("lost");
+      setMessage(`No attempts left. The word was ${level.word}.`);
+      return;
+    }
+
+    setMessage("Not quite. Use the colors and try again.");
+  };
+
+  const rows = [
+    ...history,
+    ...Array.from({ length: MAX_WORD_ATTEMPTS - history.length }, () => null),
+  ];
+
+  return (
+    <div className="glass-panel game-board-screen word-screen">
+      <div className="portal-topbar">
+        <button className="small-ghost" onClick={onBack} type="button">
+          Hub
+        </button>
+        <div>
+          <p className="eyebrow">Word Guess</p>
+          <h2 className="game-greeting">
+            Level {level.level} <span>{level.name}</span>
+          </h2>
+        </div>
+        <button
+          className="small-ghost"
+          onClick={onOpenLeaderboard}
+          type="button"
+        >
+          Ranks
+        </button>
+      </div>
+
+      <div className="word-progress">
+        <span>
+          Progress {completedLevels.length}/{WORD_GUESS_LEVELS.length}
+        </span>
+        <div>
+          <i style={{ width: `${progressPercent}%` }} />
+        </div>
+      </div>
+
+      <div className="level-strip" aria-label="Word Guess levels">
+        {WORD_GUESS_LEVELS.map((wordLevel) => {
+          const isCompleted = completedLevels.includes(wordLevel.level);
+          const isLocked = wordLevel.level > unlockedLevel;
+          return (
+            <button
+              className={[
+                "level-chip",
+                wordLevel.level === level.level ? "active" : "",
+                isCompleted ? "completed" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              disabled={isLocked}
+              key={wordLevel.level}
+              onClick={() => handleLevelSelect(wordLevel.level)}
+              type="button"
+            >
+              {wordLevel.level}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className={`word-board ${status === "won" ? "is-won" : ""}`}>
+        {status === "won" && <div className="word-success-burst" />}
+        {rows.map((row, rowIndex) => (
+          <div className="word-row" key={`row-${rowIndex}`}>
+            {Array.from({ length: level.word.length }, (_, letterIndex) => {
+              const entry = row?.evaluation[letterIndex];
+              return (
+                <span
+                  className={`letter-tile ${entry?.status || ""}`}
+                  key={`${rowIndex}-${letterIndex}`}
+                >
+                  {entry?.letter || ""}
+                </span>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      <div className="word-meta">
+        <StatPill label="Attempts Left" value={attemptsRemaining} />
+        <StatPill label="Level" value={`${level.level}/10`} />
+      </div>
+
+      <form onSubmit={handleSubmit} className="word-form">
+        <input
+          className="game-input"
+          disabled={status !== "playing" || isSaving}
+          maxLength={level.word.length}
+          placeholder="Guess word"
+          value={currentGuess}
+          onChange={(event) =>
+            setCurrentGuess(
+              event.target.value
+                .replace(/[^a-z]/gi, "")
+                .slice(0, level.word.length)
+                .toUpperCase(),
+            )
+          }
+        />
+        <button
+          className="neon-btn btn-cyan game-button"
+          disabled={status !== "playing" || isSaving}
+          type="submit"
+        >
+          {isSaving ? "Saving..." : "Submit Guess"}
+        </button>
+      </form>
+
+      <p className="game-muted word-message">{message}</p>
+
+      {status === "lost" && (
+        <button
+          className="game-button-outlined"
+          onClick={() => resetRound(level.level)}
+          type="button"
+        >
+          Try Level Again
+        </button>
+      )}
+
+      {status === "won" && hasNextLevel && (
+        <button
+          className="neon-btn btn-cyan game-button"
+          disabled={!canContinue || isSaving}
+          onClick={() => resetRound(nextLevelNumber)}
+          type="button"
+        >
+          Continue to Level {nextLevelNumber}
+        </button>
+      )}
+
+      {status === "won" && !hasNextLevel && (
+        <button
+          className="game-button-outlined"
+          onClick={onOpenLeaderboard}
+          type="button"
+        >
+          View Leaderboard
+        </button>
+      )}
+    </div>
+  );
+}
+
+function MemoryMatchGame({
+  user,
+  onBack,
+  onCompleteMemory,
+  onOpenLeaderboard,
+  isSaving,
+}) {
+  const [difficultyKey, setDifficultyKey] = useState("easy");
+  const [cards, setCards] = useState(() => createMemoryDeck("easy"));
+  const [flippedIds, setFlippedIds] = useState([]);
+  const [matchedIds, setMatchedIds] = useState([]);
+  const [moves, setMoves] = useState(0);
   const [score, setScore] = useState(0);
-  const [leaderboard, setLeaderboard] = useState([]);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [status, setStatus] = useState("ready");
+  const [locked, setLocked] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
+
+  const difficulty =
+    MEMORY_DIFFICULTIES.find((option) => option.key === difficultyKey) ??
+    MEMORY_DIFFICULTIES[0];
+  const memoryColumns =
+    difficulty.pairs <= 3 ? 3 : difficulty.pairs <= 6 ? 4 : 5;
+  const matchPoints = Math.max(
+    10,
+    Math.round(difficulty.points / difficulty.pairs),
+  );
+
+  const resetGame = useCallback(
+    (key = difficultyKey) => {
+      setCards(createMemoryDeck(key));
+      setFlippedIds([]);
+      setMatchedIds([]);
+      setMoves(0);
+      setScore(0);
+      setElapsedSeconds(0);
+      setStatus("ready");
+      setLocked(false);
+      setSaveMessage("");
+    },
+    [difficultyKey],
+  );
 
   useEffect(() => {
-    const savedLeaderboard =
-      JSON.parse(localStorage.getItem("neonLeaderboard")) || [];
-    setLeaderboard(savedLeaderboard);
-    const savedUser = localStorage.getItem("neonCurrentUser");
-    if (savedUser) setUsername(savedUser);
-  }, []);
+    resetGame(difficultyKey);
+  }, [difficultyKey, resetGame]);
 
-  const handleGameOver = (finalScore) => {
+  useEffect(() => {
+    if (status !== "playing") return undefined;
+    const timer = setInterval(() => {
+      setElapsedSeconds((current) => current + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [status]);
+
+  const completeGame = async (nextMoves) => {
+    const finalScore = calculateMemoryFinalScore(
+      difficultyKey,
+      nextMoves,
+      elapsedSeconds,
+    );
     setScore(finalScore);
-    const board = JSON.parse(localStorage.getItem("neonLeaderboard")) || [];
-    const existingPlayerIndex = board.findIndex((p) => p.username === username);
-    if (existingPlayerIndex >= 0) {
-      if (finalScore > board[existingPlayerIndex].score)
-        board[existingPlayerIndex].score = finalScore;
-    } else {
-      board.push({ username, score: finalScore });
+    setStatus("complete");
+    setSaveMessage("Saving memory score...");
+
+    try {
+      await onCompleteMemory(finalScore);
+      setSaveMessage(`Complete. Final score ${finalScore} saved.`);
+    } catch (error) {
+      setSaveMessage(
+        error.message || "Complete, but score could not be saved.",
+      );
     }
-    board.sort((a, b) => b.score - a.score);
-    localStorage.setItem("neonLeaderboard", JSON.stringify(board));
-    setLeaderboard(board);
-    setView("gameover");
   };
 
-  const deleteUser = (e, nameToDelete) => {
-    e.stopPropagation();
-    const updatedBoard = leaderboard.filter((p) => p.username !== nameToDelete);
-    setLeaderboard(updatedBoard);
-    localStorage.setItem("neonLeaderboard", JSON.stringify(updatedBoard));
+  const handleCardClick = (card) => {
+    if (
+      locked ||
+      status === "complete" ||
+      matchedIds.includes(card.id) ||
+      flippedIds.includes(card.id)
+    ) {
+      return;
+    }
+
+    if (status === "ready") setStatus("playing");
+
+    if (flippedIds.length === 0) {
+      setFlippedIds([card.id]);
+      return;
+    }
+
+    const firstCard = cards.find((item) => item.id === flippedIds[0]);
+    if (!firstCard) return;
+
+    const nextMoves = moves + 1;
+    setMoves(nextMoves);
+    setFlippedIds([firstCard.id, card.id]);
+
+    if (firstCard.pairId === card.pairId) {
+      const nextMatchedIds = [...matchedIds, firstCard.id, card.id];
+      const nextScore = score + matchPoints;
+      setMatchedIds(nextMatchedIds);
+      setScore(nextScore);
+      setFlippedIds([]);
+
+      if (nextMatchedIds.length === cards.length) {
+        completeGame(nextMoves);
+      }
+      return;
+    }
+
+    setLocked(true);
+    setTimeout(() => {
+      setFlippedIds([]);
+      setLocked(false);
+    }, 750);
   };
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    if (username.trim().length > 0) {
-      localStorage.setItem("neonCurrentUser", username);
+  return (
+    <div className="glass-panel game-board-screen memory-screen">
+      <div className="portal-topbar">
+        <button className="small-ghost" onClick={onBack} type="button">
+          Hub
+        </button>
+        <div>
+          <p className="eyebrow">Memory Match</p>
+          <h2 className="game-greeting">
+            Difficulty <span>{difficulty.name}</span>
+          </h2>
+        </div>
+        <button
+          className="small-ghost"
+          onClick={onOpenLeaderboard}
+          type="button"
+        >
+          Ranks
+        </button>
+      </div>
+
+      <div className="difficulty-tabs">
+        {Object.values(MEMORY_DIFFICULTIES).map((option) => (
+          <button
+            className={option.key === difficultyKey ? "active" : ""}
+            disabled={isSaving}
+            key={option.key}
+            onClick={() => setDifficultyKey(option.key)}
+            type="button"
+          >
+            {option.name}
+          </button>
+        ))}
+      </div>
+
+      <div className="word-meta">
+        <StatPill label="Score" value={score} />
+        <StatPill label="Moves" value={moves} />
+        <StatPill label="Time" value={formatTime(elapsedSeconds)} />
+        <StatPill label="Best" value={user.memoryGameBestScore} />
+      </div>
+
+      <div
+        className="memory-grid"
+        style={{ "--memory-columns": memoryColumns }}
+      >
+        {cards.map((card) => {
+          const isVisible =
+            flippedIds.includes(card.id) || matchedIds.includes(card.id);
+          const isMatched = matchedIds.includes(card.id);
+          return (
+            <button
+              className={[
+                "memory-card",
+                isVisible ? "revealed" : "",
+                isMatched ? "matched" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              disabled={locked || isSaving}
+              key={card.id}
+              onClick={() => handleCardClick(card)}
+              type="button"
+            >
+              <span className="memory-card-back">?</span>
+              <span className="memory-card-front">{card.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {status === "complete" && (
+        <div className="completion-panel">
+          <p className="eyebrow">All Pairs Found</p>
+          <h3>{score}</h3>
+          <p>{saveMessage || "Memory board complete."}</p>
+          <div className="completion-actions">
+            <button
+              className="neon-btn btn-cyan game-button"
+              disabled={isSaving}
+              onClick={() => resetGame(difficultyKey)}
+              type="button"
+            >
+              Play Again
+            </button>
+            <button
+              className="game-button-outlined"
+              onClick={onOpenLeaderboard}
+              type="button"
+            >
+              Leaderboard
+            </button>
+          </div>
+        </div>
+      )}
+
+      {status !== "complete" && (
+        <div className="completion-actions">
+          <button
+            className="game-button-outlined"
+            onClick={() => resetGame(difficultyKey)}
+            type="button"
+          >
+            Reset Board
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GameOverScreen({ score, isSaving, onReplay, onDashboard }) {
+  return (
+    <div className="glass-panel game-screen">
+      <h1 className="game-over-title">Game Over</h1>
+      <p className="game-muted">Your run score:</p>
+      <p className="game-final-score">{score}</p>
+      {isSaving && <p className="game-muted">Saving score...</p>}
+      <button
+        onClick={onReplay}
+        className="neon-btn btn-cyan game-button"
+        disabled={isSaving}
+        type="button"
+      >
+        Try Again
+      </button>
+      <button
+        onClick={onDashboard}
+        className="game-button-outlined"
+        type="button"
+      >
+        Game Hub
+      </button>
+    </div>
+  );
+}
+
+function GamePortal({
+  onLanding,
+  leaderboard,
+  leaderboardLoading,
+  leaderboardError,
+  onScoresChanged,
+}) {
+  const [view, setView] = useState("intro");
+  const [username, setUsername] = useState("");
+  const [currentUser, setCurrentUser] = useState(null);
+  const [score, setScore] = useState(0);
+  const [isLoadingUser, setIsLoadingUser] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [selectingAgeGroup, setSelectingAgeGroup] = useState("");
+  const [actionError, setActionError] = useState("");
+
+  const refreshLeaderboard = useCallback(async () => {
+    await onScoresChanged();
+  }, [onScoresChanged]);
+
+  const saveProgress = useCallback(
+    async (updater) => {
+      if (!currentUser) throw new Error("No active user profile.");
+
+      setIsSaving(true);
+      setActionError("");
+      try {
+        const nextUser = updater(currentUser);
+        const savedUser = await saveUser(nextUser);
+        setCurrentUser(savedUser);
+        setUsername(savedUser.username || savedUser.nickname);
+        await onScoresChanged();
+        return savedUser;
+      } catch (error) {
+        const message =
+          error.message || "Could not save progress. Please try again.";
+        setActionError(message);
+        throw new Error(message);
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [currentUser, onScoresChanged],
+  );
+
+  const handleLogin = async (event) => {
+    event.preventDefault();
+    const cleanName = sanitizeUsername(username);
+    if (!cleanName) return;
+
+    setIsLoadingUser(true);
+    setActionError("");
+    try {
+      const user = await getOrCreateUser(cleanName, AGE_GROUPS[0].key);
+      setCurrentUser(user);
+      setUsername(user.username || user.nickname);
       setView("dashboard");
+      await onScoresChanged();
+    } catch (error) {
+      setActionError(error.message || "Could not load this user from the API.");
+    } finally {
+      setIsLoadingUser(false);
     }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("neonCurrentUser");
+    setCurrentUser(null);
     setUsername("");
+    setActionError("");
     setView("intro");
+  };
+
+  const handleAgeGroupSelect = async (ageGroup) => {
+    const selectedView = gameViewByAgeGroup[ageGroup];
+    if (!selectedView) return;
+
+    const cleanName = sanitizeUsername(
+      username || currentUser?.nickname || currentUser?.username || "",
+    );
+    if (!cleanName) {
+      setView("intro");
+      return;
+    }
+
+    setSelectingAgeGroup(ageGroup);
+    setActionError("");
+    try {
+      const user = await getOrCreateUser(cleanName, ageGroup);
+      setCurrentUser(user);
+      setUsername(user.username || user.nickname);
+      setView(selectedView);
+      await onScoresChanged();
+    } catch (error) {
+      setActionError(error.message || "Could not load this game profile.");
+    } finally {
+      setSelectingAgeGroup("");
+    }
+  };
+
+  const handleArenaEnd = async (finalScore) => {
+    setScore(finalScore);
+    try {
+      await saveProgress((user) => ({
+        ...user,
+        score: Math.max(user.score, finalScore),
+      }));
+    } catch {
+      // The game over screen still appears so the run is not lost visually.
+    }
+    setView("gameover");
+  };
+
+  const handleWordLevelComplete = async (levelNumber, points) => {
+    return saveProgress((user) => {
+      const completedLevels = normalizeCompletedLevels(
+        user.completedWordleLevels,
+      );
+      const alreadyCompleted = completedLevels.includes(levelNumber);
+      return {
+        ...user,
+        score: alreadyCompleted ? user.score : user.score + points,
+        completedWordleLevels: sortLevels([...completedLevels, levelNumber]),
+      };
+    });
+  };
+
+  const handleMemoryComplete = async (finalScore) => {
+    return saveProgress((user) => {
+      const previousBest = Number(user.memoryGameBestScore) || 0;
+      const improvement = Math.max(0, finalScore - previousBest);
+      return {
+        ...user,
+        score: user.score + improvement,
+        memoryGameBestScore: Math.max(previousBest, finalScore),
+      };
+    });
   };
 
   return (
     <div className="game-portal">
       {view === "intro" && (
-        <form onSubmit={handleLogin} className="glass-panel game-screen">
-          <button
-            className="back-link"
-            onClick={() => window.location.reload()}
-            type="button"
-          >
-            ← Landing
-          </button>
-          <img src={URL_FOTOS} alt="" className="game-logo" />
-          <h1 className="game-title">
-            Unity <span>Code Rush</span>
-          </h1>
-          <input
-            className="game-input"
-            placeholder="Shkruaj emrin tënd..."
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-          />
-          <button type="submit" className="neon-btn btn-cyan game-button">
-            HYR NË TECH HUB
-          </button>
-        </form>
+        <IntroScreen
+          username={username}
+          onUsernameChange={setUsername}
+          onLogin={handleLogin}
+          onLanding={onLanding}
+          loading={isLoadingUser}
+          error={actionError}
+        />
       )}
 
-      {view === "dashboard" && (
-        <div className="glass-panel game-screen">
-          <img src={URL_FOTOS} alt="" className="game-logo" />
-          <h2 className="game-greeting">
-            Përshëndetje, <span>{username}</span>
-          </h2>
-          <div className="game-leaderboard-container">
-            <h3>RENDITJA AKTUALE</h3>
-            <table className="game-table">
-              <tbody>
-                {leaderboard.length > 0 ? (
-                  leaderboard.map((p, i) => (
-                    <tr key={`${p.username}-${i}`}>
-                      <td>
-                        #{i + 1} {p.username}
-                      </td>
-                      <td>{p.score}</td>
-                      <td className="text-right">
-                        <button
-                          className="delete-btn"
-                          onClick={(e) => deleteUser(e, p.username)}
-                          type="button"
-                        >
-                          Fshije
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="3" className="text-center">
-                      Nuk ka rekorde ende...
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          <button
-            onClick={() => setView("playing")}
-            className="neon-btn btn-cyan game-button"
-            type="button"
-          >
-            FILLO LOJËN
-          </button>
-          <button
-            onClick={handleLogout}
-            className="game-button-outlined"
-            type="button"
-          >
-            NDRYSHO EMRIN
-          </button>
-        </div>
-      )}
+      {view !== "intro" && currentUser && (
+        <>
+          {view === "dashboard" && (
+            <Dashboard
+              user={currentUser}
+              leaderboard={leaderboard}
+              leaderboardLoading={leaderboardLoading}
+              leaderboardError={leaderboardError}
+              onSelectAgeGroup={handleAgeGroupSelect}
+              selectingAgeGroup={selectingAgeGroup}
+              onOpenLeaderboard={() => setView("leaderboard")}
+              onLogout={handleLogout}
+              onLanding={onLanding}
+              onRefreshLeaderboard={refreshLeaderboard}
+            />
+          )}
 
-      {view === "playing" && <GameEngine onGameEnd={handleGameOver} />}
+          {view === "leaderboard" && (
+            <FullLeaderboardPage
+              leaderboard={leaderboard}
+              leaderboardLoading={leaderboardLoading}
+              leaderboardError={leaderboardError}
+              onBack={() => setView("dashboard")}
+              onRefreshLeaderboard={refreshLeaderboard}
+              defaultAgeGroup={currentUser.ageGroup}
+            />
+          )}
 
-      {view === "gameover" && (
-        <div className="glass-panel game-screen">
-          <h1 className="game-over-title">LOJA PËRFUNDOI</h1>
-          <p className="game-muted">Pikët e tua:</p>
-          <p className="game-final-score">{score}</p>
-          <button
-            onClick={() => setView("playing")}
-            className="neon-btn btn-cyan game-button"
-            type="button"
-          >
-            PROVO PËRSËRI
-          </button>
-          <button
-            onClick={() => setView("dashboard")}
-            className="game-button-outlined"
-            type="button"
-          >
-            REKORDET
-          </button>
-        </div>
+          {view === "playing" && <GameEngine onGameEnd={handleArenaEnd} />}
+
+          {view === "gameover" && (
+            <GameOverScreen
+              score={score}
+              isSaving={isSaving}
+              onReplay={() => setView("playing")}
+              onDashboard={() => setView("dashboard")}
+            />
+          )}
+
+          {view === "word" && (
+            <>
+              <WordGuessGame
+                user={currentUser}
+                onBack={() => setView("dashboard")}
+                onCompleteLevel={handleWordLevelComplete}
+                onOpenLeaderboard={() => setView("leaderboard")}
+                isSaving={isSaving}
+              />
+              <ActionError message={actionError} />
+            </>
+          )}
+
+          {view === "memory" && (
+            <>
+              <MemoryMatchGame
+                user={currentUser}
+                onBack={() => setView("dashboard")}
+                onCompleteMemory={handleMemoryComplete}
+                onOpenLeaderboard={() => setView("leaderboard")}
+                isSaving={isSaving}
+              />
+              <ActionError message={actionError} />
+            </>
+          )}
+        </>
       )}
     </div>
   );
@@ -763,19 +1716,55 @@ function GamePortal() {
 export default function App() {
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState("landing");
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState("");
+
+  const refreshLeaderboard = useCallback(async () => {
+    setLeaderboardLoading(true);
+    try {
+      const users = await fetchUsers();
+      setLeaderboard(sortUsersByScore(users));
+      setLeaderboardError("");
+    } catch (error) {
+      setLeaderboardError(
+        error.message || "Could not load leaderboard from the API.",
+      );
+    } finally {
+      setLeaderboardLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1350);
+    const timer = setTimeout(() => setLoading(false), 900);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    refreshLeaderboard();
+    const interval = setInterval(refreshLeaderboard, 15000);
+    return () => clearInterval(interval);
+  }, [refreshLeaderboard]);
 
   return (
     <>
       {loading && <LoadingScreen />}
       {mode === "landing" ? (
-        <LandingPage onPlay={() => setMode("game")} />
+        <LandingPage
+          onPlay={() => setMode("game")}
+          leaderboard={leaderboard}
+          leaderboardLoading={leaderboardLoading}
+          leaderboardError={leaderboardError}
+          onRefreshLeaderboard={refreshLeaderboard}
+        />
       ) : (
-        <GamePortal />
+        <GamePortal
+          onLanding={() => setMode("landing")}
+          leaderboard={leaderboard}
+          leaderboardLoading={leaderboardLoading}
+          leaderboardError={leaderboardError}
+          onScoresChanged={refreshLeaderboard}
+        />
       )}
     </>
   );
