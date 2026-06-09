@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import URL_FOTOS from "/vite.svg";
+import URL_FOTOS from "../dist/assets/ucr.png";
 import {
   AGE_GROUPS,
   MAX_WORD_ATTEMPTS,
